@@ -6,28 +6,32 @@ use Illuminate\Http\Request;
 use App\Models\Requests;
 use App\Http\Requests\Api\V1\CreateRequest;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
+use App\Http\Requests\Api\V1\FilterRequest;
+use App\Http\Resources\Api\V1\RequestsResource;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 class RequestsController extends Controller
 {
-    public function RequestsAll(Request $request){
-
-
-        if($request->filled('status')){
-            $s=Validator::make($request->all(), [
-                'status' => [
-                    Rule::In(['Active', 'Resolved']),
-                ],
-            ]);
-            $s->validate();
-            return response()->json(Requests::where('status',$request->status)->get(),200);
+    public function RequestsAll(FilterRequest $request){
+        $validated = $request->validated();
+        $date_start=null;
+        $date_end=null;
+        if ($request->filled('date_start')){
+            $date_start=date('d.m.Y H:i:s',strtotime($request->date_start));
         }
-
-        return response()->json(Requests::get(),200);
+        if ($request->filled('date_end')){
+            $date_end=date('d.m.Y H:i:s',strtotime($request->date_end));
+        }
+        $requests=Requests::query()
+        ->when($request->query('status'), fn(Builder $query, $status) => $query->where('status', $status))
+        ->when($date_start, fn(Builder $query,$date_start) => $query->where('created_at', '>=', $date_start))
+        ->when($date_end, fn(Builder $query,$date_start) => $query->where('created_at', '<=', $date_end))
+        ->get();
+        return response()->json($requests,200);
     }
 
-    public function NewRequestSave(CreateRequest $request){
+    public function RequestSave(CreateRequest $request){
         $validated = $request->validated();
         $Requests= new Requests;
         $Requests->name=$request->name;
@@ -41,5 +45,8 @@ class RequestsController extends Controller
         return response()->json($message_out,201);
     }
 
+    public function RequestUpdate(){
+
+    }
 
 }
