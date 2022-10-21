@@ -10,6 +10,9 @@ use App\Http\Requests\Api\V1\FilterRequest;
 use App\Http\Resources\Api\V1\RequestsResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use App\Mail\MailSender;
+use App\Http\Requests\Api\V1\UpdateRequest;
+use Illuminate\Support\Facades\Mail;
 
 class RequestsController extends Controller
 {
@@ -27,6 +30,7 @@ class RequestsController extends Controller
         ->when($request->query('status'), fn(Builder $query, $status) => $query->where('status', $status))
         ->when($date_start, fn(Builder $query,$date_start) => $query->where('created_at', '>=', $date_start))
         ->when($date_end, fn(Builder $query,$date_start) => $query->where('created_at', '<=', $date_end))
+        ->orderBy('id')
         ->get();
         return response()->json($requests,200);
     }
@@ -45,8 +49,13 @@ class RequestsController extends Controller
         return response()->json($message_out,201);
     }
 
-    public function RequestUpdate(){
+    public function RequestUpdate(UpdateRequest $request ,$id){
 
+        Requests::where('id',$id)->update(['status' =>'Resolved','comment'=>$request->comment,'updated_at'=>date('d.m.Y')]);
+        $requests=Requests::where('id',$id)->first();
+        $message_out='Заявка с id  '.$id.' обработана. Пользователю '.$requests->name.' отправлено пиьсмо на почту'.$requests->email.'c сообщением :" '.$requests->comment.' "';
+        Mail::to( $requests->email)->send(new MailSender ($request) );
+        return response()->json($message_out,200);
     }
 
 }
